@@ -1,6 +1,4 @@
-
-  
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -12,150 +10,31 @@
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body {
-      font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
-      background: #f5f6fa;
-      margin: 0;
-      padding: 0;
-      min-height: 100vh;
-    }
-    .container {
-      max-width: 98vw;
-      margin: 24px auto;
-      padding: 8px;
-    }
-    h2 {
-      font-weight: 700;
-      font-size: 1.35rem;
-      margin-bottom: 16px;
-      color: #222;
-      letter-spacing: -1px;
-      text-align: center;
-    }
-    .actions-bar {
-      display: flex;
-      gap: 10px;
-      justify-content: flex-end;
-      align-items: center;
-      margin-bottom: 6px;
-      flex-wrap: wrap;
-    }
-    #addCategoryBtn {
-      background: #fff;
-      border: 1px solid #007BFF;
-      color: #007BFF;
-      padding: 6px 14px;
-      border-radius: 8px;
-      font-size: 0.98rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.1s, color 0.1s;
-      box-shadow: 0 1px 4px #0001;
-    }
-    #addCategoryBtn:hover {
-      background: #007BFF;
-      color: #fff;
-    }
-    .table-container {
-      width: 100%;
-      overflow-x: auto;
-      background: #fff;
-      border-radius: 14px;
-      box-shadow: 0 3px 14px #0001;
-      padding: 8px 0 8px 0;
-    }
-    table {
-      border-collapse: separate;
-      border-spacing: 0;
-      width: 100%;
-      min-width: 680px;
-      font-size: 0.98rem;
-      background: #fff;
-    }
-    thead tr {
-      background: #007BFF;
-      color: #fff;
-    }
-    th, td {
-      padding: 5px 8px;
-      border-bottom: 1px solid #e3e7ee;
-      min-width: 74px;
-      text-align: right;
-      white-space: nowrap;
-    }
-    th:first-child, td:first-child {
-      position: sticky;
-      left: 0;
-      background: #f7faff;
-      text-align: left;
-      z-index: 2;
-      min-width: 136px;
-      font-weight: 600;
-      box-shadow: 3px 0 8px -7px #3333;
-    }
-    td[contenteditable="true"] {
-      background-color: #f6faff;
-      border-radius: 7px;
-      outline: none;
-      cursor: pointer;
-      transition: background 0.12s;
-    }
-    td[contenteditable="true"]:focus {
-      background: #e6f0ff;
-      box-shadow: 0 0 0 2px #007bff33;
-    }
-    tfoot tr {
-      background: #f0f6ff;
-      font-weight: 600;
-    }
-    .cat-actions {
-      display: flex;
-      align-items: center;
-      gap: 3px;
-      margin-left: 4px;
-    }
-    .cat-btn {
-      background: none;
-      border: none;
-      color: #999;
-      font-size: 1em;
-      cursor: pointer;
-      padding: 1px 4px;
-      border-radius: 3px;
-      transition: color 0.15s, background 0.1s;
-    }
-    .cat-btn:hover {
-      color: #007bff;
-      background: #e7f0ff;
-    }
+    body { font-family: 'Inter', 'Segoe UI', Arial, sans-serif; background: #f5f6fa; margin: 0; padding: 0; min-height: 100vh; }
+    .container { max-width: 98vw; margin: 24px auto; padding: 8px; }
+    h2 { font-weight: 700; font-size: 1.35rem; margin-bottom: 16px; color: #222; letter-spacing: -1px; text-align: center; }
+    .actions-bar { display: flex; gap: 10px; justify-content: flex-end; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
+    #addCategoryBtn { background: #fff; border: 1px solid #007BFF; color: #007BFF; padding: 6px 14px; border-radius: 8px; font-size: 0.98rem; font-weight: 500; cursor: pointer; transition: background 0.1s, color 0.1s; box-shadow: 0 1px 4px #0001; }
+    #addCategoryBtn:hover { background: #007BFF; color: #fff; }
+    .table-container { width: 100%; overflow-x: auto; background: #fff; border-radius: 14px; box-shadow: 0 3px 14px #0001; padding: 8px 0 8px 0; }
+    table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 680px; font-size: 0.98rem; background: #fff; }
+    thead tr { background: #007BFF; color: #fff; }
+    th, td { padding: 5px 8px; border-bottom: 1px solid #e3e7ee; min-width: 74px; text-align: right; white-space: nowrap; }
+    th:first-child, td:first-child { position: sticky; left: 0; background: #f7faff; text-align: left; z-index: 2; min-width: 136px; font-weight: 600; box-shadow: 3px 0 8px -7px #3333; }
+    td[contenteditable="true"] { background-color: #f6faff; border-radius: 7px; outline: none; cursor: pointer; transition: background 0.12s; }
+    td[contenteditable="true"]:focus { background: #e6f0ff; box-shadow: 0 0 0 2px #007bff33; }
+    tfoot tr { background: #f0f6ff; font-weight: 600; }
+    .cat-actions { display: flex; align-items: center; gap: 3px; margin-left: 4px; }
+    .cat-btn { background: none; border: none; color: #999; font-size: 1em; cursor: pointer; padding: 1px 4px; border-radius: 3px; transition: color 0.15s, background 0.1s; }
+    .cat-btn:hover { color: #007bff; background: #e7f0ff; }
     @media (max-width: 760px) {
-      .container {
-        max-width: 99vw;
-        margin: 0;
-        padding: 2px;
-      }
+      .container { max-width: 99vw; margin: 0; padding: 2px; }
       h2 { font-size: 1rem; }
-      th, td {
-        min-width: 56px;
-        font-size: 0.93rem;
-        padding: 4px 4px;
-      }
-      th:first-child, td:first-child {
-        min-width: 95px;
-      }
-      .table-container {
-        padding: 0;
-      }
+      th, td { min-width: 56px; font-size: 0.93rem; padding: 4px 4px; }
+      th:first-child, td:first-child { min-width: 95px; }
+      .table-container { padding: 0; }
     }
-    #chart {
-      margin-top: 16px;
-      max-width: 99vw;
-      background: #fff;
-      border-radius: 14px;
-      box-shadow: 0 2px 14px #0001;
-      padding: 10px 0;
-      min-height: 120px;
-    }
+    #chart { margin-top: 16px; max-width: 99vw; background: #fff; border-radius: 14px; box-shadow: 0 2px 14px #0001; padding: 10px 0; min-height: 120px; }
   </style>
 </head>
 <body>
@@ -172,9 +51,7 @@
             <!-- Meses via JS -->
           </tr>
         </thead>
-        <tbody>
-          <!-- Linhas via JS -->
-        </tbody>
+        <tbody></tbody>
         <tfoot>
           <tr id="monthlyTotalRow"><td>Saldo do Mês</td></tr>
           <tr id="accumulatedTotalRow"><td>Saldo Acumulado</td></tr>
@@ -184,21 +61,18 @@
     <canvas id="chart" height="85"></canvas>
   </div>
   <script>
-
-    // Substitua abaixo com seu firebaseConfig!
-  const firebaseConfig = {
-  apiKey: "AIzaSyC8w5g9ot_LWkFgpsZN0UBDOeREeSd17UA",
-  authDomain: "cashflow-6188e.firebaseapp.com",
-  databaseURL: "https://cashflow-6188e-default-rtdb.firebaseio.com",
-  projectId: "cashflow-6188e",
-  storageBucket: "cashflow-6188e.firebasestorage.app",
-  messagingSenderId: "644882577807",
-  appId: "1:644882577807:web:92e5e6df27c4d0d7feb3fa"
-};
+    const firebaseConfig = {
+      apiKey: "AIzaSyC8w5g9ot_LWkFgpsZN0UBDOeREeSd17UA",
+      authDomain: "cashflow-6188e.firebaseapp.com",
+      databaseURL: "https://cashflow-6188e-default-rtdb.firebaseio.com",
+      projectId: "cashflow-6188e",
+      storageBucket: "cashflow-6188e.appspot.com",
+      messagingSenderId: "644882577807",
+      appId: "1:644882577807:web:92e5e6df27c4d0d7feb3fa"
+    };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Datas
     const meses = Array.from({ length: 24 }, (_, i) => {
       const d = new Date();
       d.setMonth(d.getMonth() + i);
@@ -211,30 +85,25 @@
     const totalRow = document.getElementById("monthlyTotalRow");
     const acumuladoRow = document.getElementById("accumulatedTotalRow");
 
-    // Monta cabeçalhos
     meses.forEach(m => {
       theadRow.innerHTML += `<th>${m}</th>`;
       totalRow.innerHTML += `<td>R$ 0,00</td>`;
       acumuladoRow.innerHTML += `<td>R$ 0,00</td>`;
     });
 
-    // --- Firebase data models
     let categorias = [];
-    let valoresPorCategoria = {}; // { nomeCategoria: [valores...] }
+    let valoresPorCategoria = {};
 
-    // Utilitário formatador de moeda BRL
     function fmtBRL(v) {
       return "R$ " + (isNaN(v) ? "0,00" : v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
     }
 
-    // Cria linha de categoria
     function desenharLinhaCategoria(cat, idx, valores = []) {
       const tr = document.createElement("tr");
       tr.dataset.nome = cat.nome;
       tr.dataset.tipo = cat.tipo;
       tr.dataset.idx = idx;
 
-      // Coluna label + botões
       const tdLabel = document.createElement("td");
       tdLabel.innerHTML = `<span>${cat.nome}</span>
         <span class="cat-actions">
@@ -249,27 +118,27 @@
         const td = document.createElement("td");
         td.contentEditable = true;
         td.inputMode = "decimal";
-        let valor = valores[i] || "";
-        td.textContent = valor !== "" ? fmtBRL(parseFloat(valor)) : "";
-        
-        // Ao focar, mostra só o número puro
+        let valorAtual = valores[i] || "";
+
+        td.textContent = valorAtual !== "" ? fmtBRL(parseFloat(valorAtual)) : "";
+
         td.addEventListener("focus", function() {
           let txt = td.textContent.replace(/[^\d,-]/g, '').replace(',', '.');
           td.textContent = (parseFloat(txt) || txt === "0" ? txt : "");
         });
-        // Ao sair do foco, formata para BRL
+
         td.addEventListener("blur", function() {
           let txt = td.textContent.replace(/[^\d,-]/g, '').replace(',', '.');
           let vNum = parseFloat(txt);
           td.textContent = (txt.trim() === "" || isNaN(vNum)) ? "" : fmtBRL(vNum);
           atualizarEAtualizarDB();
         });
+
         tr.appendChild(td);
       }
       return tr;
     }
 
-    // Desenha tabela inteira
     function renderizarTabela() {
       tbody.innerHTML = '';
       categorias.forEach((cat, idx) => {
@@ -279,7 +148,6 @@
       calcularTotais();
     }
 
-    // Calcula totais
     function calcularTotais() {
       const totais = Array(24).fill(0);
       const acumulados = Array(24).fill(0);
@@ -300,15 +168,14 @@
       atualizarGrafico(acumulados);
     }
 
-    // Atualiza e salva valores no DB
     function atualizarEAtualizarDB() {
       valoresPorCategoria = {};
       tbody.querySelectorAll("tr").forEach(tr => {
         const nome = tr.dataset.nome;
         const valores = [...tr.cells].slice(1).map(td => {
           let txt = td.textContent.replace(/[^\d,-]/g, '').replace(',', '.');
-          let val = parseFloat(txt) || "";
-          return val === "" ? "" : val;
+          let val = parseFloat(txt);
+          return isNaN(val) ? "" : val;
         });
         valoresPorCategoria[nome] = valores;
       });
@@ -316,7 +183,6 @@
       calcularTotais();
     }
 
-    // Adicionar nova categoria
     document.getElementById("addCategoryBtn").onclick = () => {
       const nome = prompt("Nome da categoria:");
       if (!nome) return;
@@ -328,7 +194,6 @@
       renderizarTabela();
     };
 
-    // Editar categoria
     window.editarCategoria = function(nome) {
       const cat = categorias.find(c => c.nome === nome);
       if (!cat) return;
@@ -336,7 +201,6 @@
       if (!novonome || novonome.trim() === "" || novonome === cat.nome) return;
       let tipo = prompt("Tipo: receita ou despesa?", cat.tipo).trim().toLowerCase();
       if (!["receita", "despesa"].includes(tipo)) return alert("Digite receita ou despesa.");
-      // Atualiza categoria e valores
       valoresPorCategoria[novonome] = valoresPorCategoria[nome] || Array(24).fill("");
       delete valoresPorCategoria[nome];
       cat.nome = novonome;
@@ -345,7 +209,6 @@
       renderizarTabela();
     };
 
-    // Excluir categoria
     window.removerCategoria = function(nome) {
       if (!confirm("Remover categoria?")) return;
       categorias = categorias.filter(c => c.nome !== nome);
@@ -354,7 +217,6 @@
       renderizarTabela();
     };
 
-    // Reorganizar categorias
     window.moveCategoria = function(nome, dir) {
       const idx = categorias.findIndex(c => c.nome === nome);
       if (idx < 0) return;
@@ -365,13 +227,11 @@
       renderizarTabela();
     };
 
-    // Salva categorias e ordem
     function salvarCategorias() {
       db.ref("categorias").set(categorias);
       db.ref("valores").set(valoresPorCategoria);
     }
 
-    // Carrega do Firebase
     function carregarTudo() {
       db.ref("categorias").once("value", snap => {
         categorias = snap.val() || [];
@@ -382,7 +242,6 @@
       });
     }
 
-    // Chart.js gráfico
     const ctx = document.getElementById('chart').getContext('2d');
     const grafico = new Chart(ctx, {
       type: 'line',
@@ -400,9 +259,7 @@
       },
       options: {
         responsive: true,
-        plugins: {
-          legend: { display: false }
-        },
+        plugins: { legend: { display: false } },
         scales: {
           x: { display: true },
           y: {
@@ -420,13 +277,8 @@
       grafico.update();
     }
 
-    // Inicializa ao abrir
     carregarTudo();
-
-    // Responsividade extra
     window.addEventListener('resize', () => grafico.resize());
-
-    // Hot reload de dados do Firebase
     db.ref("categorias").on("value", snap => {
       categorias = snap.val() || [];
       db.ref("valores").once("value", valSnap => {
