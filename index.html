@@ -10,96 +10,183 @@
       margin: 0;
       padding: 20px;
     }
+
     h2 {
       text-align: center;
-      margin-bottom: 20px;
+      margin-bottom: 10px;
       color: #333;
     }
+
+    .table-container {
+      overflow-x: auto;
+    }
+
     table {
-      width: 100%;
       border-collapse: collapse;
+      min-width: 100%;
       background: #fff;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
+
     thead {
       background: #007BFF;
       color: #fff;
     }
+
     th, td {
-      padding: 10px;
-      border: 1px solid #ddd;
+      padding: 8px;
+      border: 1px solid #ccc;
       text-align: center;
       min-width: 100px;
     }
+
     td[contenteditable] {
       background-color: #fefefe;
       cursor: pointer;
     }
+
     tr:hover td {
       background-color: #f1f9ff;
+    }
+
+    th:first-child, td:first-child {
+      position: sticky;
+      left: 0;
+      background: #f0f0f0;
+      z-index: 1;
+    }
+
+    tfoot {
+      background: #eef4ff;
+      font-weight: bold;
+    }
+
+    #addCategoryBtn {
+      background: none;
+      border: 1px solid #007BFF;
+      color: #007BFF;
+      padding: 6px 12px;
+      font-size: 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 15px 0;
+      display: block;
+    }
+
+    #addCategoryBtn:hover {
+      background: #007BFF;
+      color: #fff;
     }
   </style>
 </head>
 <body>
 
-<h2>Planilha de Fluxo de Caixa (Próximos 24 Meses)</h2>
-<table>
-  <thead>
-    <tr>
-      <th>Categoria</th>
-      <!-- Colunas de mês (preenchidas via JS) -->
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Receitas</td>
-    </tr>
-    <tr>
-      <td>Despesas Fixas</td>
-    </tr>
-    <tr>
-      <td>Despesas Variáveis</td>
-    </tr>
-    <tr>
-      <td>Investimentos</td>
-    </tr>
-    <tr>
-      <td>Outros</td>
-    </tr>
-  </tbody>
-</table>
+<h2>Fluxo de Caixa (24 Meses)</h2>
+
+<button id="addCategoryBtn">+ Adicionar Categoria</button>
+
+<div class="table-container">
+  <table id="cashFlowTable">
+    <thead>
+      <tr>
+        <th>Categoria</th>
+        <!-- Meses serão adicionados por JS -->
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Receitas</td></tr>
+      <tr><td>Despesas</td></tr>
+      <tr><td>Outros</td></tr>
+    </tbody>
+    <tfoot>
+      <tr id="monthlyTotalRow">
+        <td>Saldo do Mês</td>
+        <!-- Totais por mês -->
+      </tr>
+      <tr id="accumulatedTotalRow">
+        <td>Saldo Acumulado</td>
+        <!-- Acumulado -->
+      </tr>
+    </tfoot>
+  </table>
+</div>
 
 <script>
-  function gerarMesesProximos(qtd) {
-    const meses = [];
-    const hoje = new Date();
-    for (let i = 0; i < qtd; i++) {
-      const data = new Date(hoje.getFullYear(), hoje.getMonth() + i, 1);
-      const nomeMes = data.toLocaleString('pt-BR', { month: 'short', year: '2-digit' });
-      meses.push(nomeMes);
-    }
-    return meses;
-  }
+  const meses = Array.from({length: 24}, (_, i) => {
+    const date = new Date();
+    date.setMonth(date.getMonth() + i);
+    return date.toLocaleString('pt-BR', { month: 'short', year: '2-digit' });
+  });
 
-  const meses = gerarMesesProximos(24);
-  const theadRow = document.querySelector("thead tr");
-  const tbodyRows = document.querySelectorAll("tbody tr");
+  const table = document.getElementById("cashFlowTable");
+  const theadRow = table.querySelector("thead tr");
+  const tbody = table.querySelector("tbody");
+  const totalRow = document.getElementById("monthlyTotalRow");
+  const acumuladoRow = document.getElementById("accumulatedTotalRow");
 
-  // Adiciona colunas com os nomes dos meses
+  // Adiciona cabeçalhos de mês
   meses.forEach(mes => {
     const th = document.createElement("th");
     th.textContent = mes;
     theadRow.appendChild(th);
+
+    const tdTotal = document.createElement("td");
+    tdTotal.textContent = "0";
+    totalRow.appendChild(tdTotal);
+
+    const tdAcumulado = document.createElement("td");
+    tdAcumulado.textContent = "0";
+    acumuladoRow.appendChild(tdAcumulado);
   });
 
-  // Adiciona células editáveis para cada categoria
-  tbodyRows.forEach(tr => {
-    meses.forEach(() => {
+  // Adiciona células editáveis às linhas existentes
+  tbody.querySelectorAll("tr").forEach(tr => {
+    for (let i = 0; i < 24; i++) {
       const td = document.createElement("td");
       td.contentEditable = true;
+      td.addEventListener("input", calcularTotais);
       tr.appendChild(td);
-    });
+    }
   });
+
+  // Botão para adicionar categoria
+  document.getElementById("addCategoryBtn").addEventListener("click", () => {
+    const nome = prompt("Digite o nome da nova categoria:");
+    if (!nome) return;
+    const tr = document.createElement("tr");
+    const tdLabel = document.createElement("td");
+    tdLabel.textContent = nome;
+    tr.appendChild(tdLabel);
+    for (let i = 0; i < 24; i++) {
+      const td = document.createElement("td");
+      td.contentEditable = true;
+      td.addEventListener("input", calcularTotais);
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  });
+
+  function calcularTotais() {
+    const linhas = tbody.querySelectorAll("tr");
+    const totais = Array(24).fill(0);
+
+    linhas.forEach(tr => {
+      const valores = [...tr.querySelectorAll("td")].slice(1).map(td => parseFloat(td.textContent.replace(",", ".")) || 0);
+      valores.forEach((val, idx) => totais[idx] += val);
+    });
+
+    // Atualiza saldo do mês
+    totais.forEach((total, i) => {
+      totalRow.cells[i + 1].textContent = total.toFixed(2);
+    });
+
+    // Atualiza saldo acumulado
+    let acumulado = 0;
+    totais.forEach((total, i) => {
+      acumulado += total;
+      acumuladoRow.cells[i + 1].textContent = acumulado.toFixed(2);
+    });
+  }
 </script>
 
 </body>
