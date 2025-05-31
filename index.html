@@ -1,4 +1,6 @@
-<!DOCTYPE html>
+
+  
+  <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -92,7 +94,7 @@
       box-shadow: 3px 0 8px -7px #3333;
     }
     td[contenteditable="true"] {
-      background: #f6faff;
+      background-color: #f6faff;
       border-radius: 7px;
       outline: none;
       cursor: pointer;
@@ -182,6 +184,7 @@
     <canvas id="chart" height="85"></canvas>
   </div>
   <script>
+
     // Substitua abaixo com seu firebaseConfig!
   const firebaseConfig = {
   apiKey: "AIzaSyC8w5g9ot_LWkFgpsZN0UBDOeREeSd17UA",
@@ -247,19 +250,18 @@
         td.contentEditable = true;
         td.inputMode = "decimal";
         let valor = valores[i] || "";
-        td.textContent = valor ? fmtBRL(parseFloat(valor)) : "";
+        td.textContent = valor !== "" ? fmtBRL(parseFloat(valor)) : "";
+        
+        // Ao focar, mostra só o número puro
         td.addEventListener("focus", function() {
-          // ao focar, mostra o valor numérico puro para facilitar digitação
-          td.textContent = valor || "";
+          let txt = td.textContent.replace(/[^\d,-]/g, '').replace(',', '.');
+          td.textContent = (parseFloat(txt) || txt === "0" ? txt : "");
         });
+        // Ao sair do foco, formata para BRL
         td.addEventListener("blur", function() {
-          valor = td.textContent.replace(/\D/g,'');
-          valor = td.textContent.replace(/[^\d,-]/g, '').replace(',', '.');
-          let vNum = parseFloat(valor) || 0;
-          td.textContent = td.textContent.trim() ? fmtBRL(vNum) : "";
-          atualizarEAtualizarDB();
-        });
-        td.addEventListener("input", () => {
+          let txt = td.textContent.replace(/[^\d,-]/g, '').replace(',', '.');
+          let vNum = parseFloat(txt);
+          td.textContent = (txt.trim() === "" || isNaN(vNum)) ? "" : fmtBRL(vNum);
           atualizarEAtualizarDB();
         });
         tr.appendChild(td);
@@ -424,7 +426,7 @@
     // Responsividade extra
     window.addEventListener('resize', () => grafico.resize());
 
-    // Hot reload de dados do Firebase (opcional: remova se não quiser realtime ao editar de outro lugar)
+    // Hot reload de dados do Firebase
     db.ref("categorias").on("value", snap => {
       categorias = snap.val() || [];
       db.ref("valores").once("value", valSnap => {
