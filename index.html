@@ -24,15 +24,34 @@
     td[contenteditable="true"] { background-color: #f6faff; border-radius: 7px; outline: none; cursor: pointer; transition: background 0.12s; }
     td[contenteditable="true"]:focus { background: #e6f0ff; box-shadow: 0 0 0 2px #007bff33; }
     tfoot tr { background: #f0f6ff; font-weight: 600; }
-    .cat-actions { display: flex; align-items: center; gap: 3px; margin-left: 4px; }
+    .cat-actions { display: none; align-items: center; gap: 3px; margin-left: 4px; }
     .cat-btn { background: none; border: none; color: #999; font-size: 1em; cursor: pointer; padding: 1px 4px; border-radius: 3px; transition: color 0.15s, background 0.1s; }
     .cat-btn:hover { color: #007bff; background: #e7f0ff; }
+    .cat-label.active + .cat-actions { display: inline-flex !important; }
+    .cat-label { cursor: pointer; user-select: none; }
+    .cat-label.active { color: #007BFF; font-weight: bold; }
+    .dropdown-backdrop {
+      position: fixed; left:0; top:0; right:0; bottom:0; z-index:11; background:transparent;
+    }
+    .dropdown-modal {
+      position: fixed; left:50%; top:18%; transform:translate(-50%,0); z-index:12;
+      background: #fff; border-radius: 10px; box-shadow: 0 4px 24px #007bff10;
+      padding: 28px 20px 18px 20px; min-width:270px; display:flex; flex-direction:column; align-items:center;
+      animation: fadeIn .16s;
+    }
+    @keyframes fadeIn { from{opacity:0;transform:translate(-50%,-20px);} to{opacity:1;transform:translate(-50%,0);} }
+    .dropdown-modal h3 { font-size: 1.08rem; font-weight: 600; color: #222; margin: 0 0 16px 0;}
+    .dropdown-modal input[type="text"] { width:100%; padding: 7px; border-radius: 7px; border: 1px solid #ccc; margin-bottom:12px; font-size:1rem;}
+    .dropdown-modal select { width:100%; padding:7px; border-radius:7px; border:1px solid #ccc; font-size:1rem; margin-bottom:12px;}
+    .dropdown-modal button { background:#007BFF; border:none; color:#fff; border-radius:6px; padding:7px 18px; font-size:1rem; font-weight:500; cursor:pointer;}
+    .dropdown-modal button:hover { background:#005fd1; }
     @media (max-width: 760px) {
       .container { max-width: 99vw; margin: 0; padding: 2px; }
       h2 { font-size: 1rem; }
       th, td { min-width: 56px; font-size: 0.93rem; padding: 4px 4px; }
       th:first-child, td:first-child { min-width: 95px; }
       .table-container { padding: 0; }
+      .dropdown-modal { min-width: 93vw; }
     }
     #chart { margin-top: 16px; max-width: 99vw; background: #fff; border-radius: 14px; box-shadow: 0 2px 14px #0001; padding: 10px 0; min-height: 120px; }
   </style>
@@ -60,7 +79,9 @@
     </div>
     <canvas id="chart" height="85"></canvas>
   </div>
+  <div id="dropdown-holder"></div>
   <script>
+    // Seu Firebase Config
     const firebaseConfig = {
       apiKey: "AIzaSyC8w5g9ot_LWkFgpsZN0UBDOeREeSd17UA",
       authDomain: "cashflow-6188e.firebaseapp.com",
@@ -73,10 +94,13 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
+    // Meses formato: Jan/25, Fev/25, etc.
     const meses = Array.from({ length: 24 }, (_, i) => {
       const d = new Date();
       d.setMonth(d.getMonth() + i);
-      return d.toLocaleString('pt-BR', { month: 'short', year: '2-digit' });
+      const mesAbrev = d.toLocaleString('pt-BR', { month: 'short' }).replace('.', '');
+      const ano = d.getFullYear().toString().slice(2);
+      return `${mesAbrev.charAt(0).toUpperCase() + mesAbrev.slice(1)}/${ano}`;
     });
 
     const table = document.getElementById("cashFlowTable");
@@ -84,6 +108,7 @@
     const tbody = table.querySelector("tbody");
     const totalRow = document.getElementById("monthlyTotalRow");
     const acumuladoRow = document.getElementById("accumulatedTotalRow");
+    const dropdownHolder = document.getElementById('dropdown-holder');
 
     meses.forEach(m => {
       theadRow.innerHTML += `<th>${m}</th>`;
@@ -98,20 +123,37 @@
       return "R$ " + (isNaN(v) ? "0,00" : v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
     }
 
+    // Categoria linha
     function desenharLinhaCategoria(cat, idx, valores = []) {
       const tr = document.createElement("tr");
       tr.dataset.nome = cat.nome;
       tr.dataset.tipo = cat.tipo;
       tr.dataset.idx = idx;
 
+      // label + ações
       const tdLabel = document.createElement("td");
-      tdLabel.innerHTML = `<span>${cat.nome}</span>
-        <span class="cat-actions">
+      const labelSpan = document.createElement("span");
+      labelSpan.textContent = cat.nome;
+      labelSpan.className = "cat-label";
+      labelSpan.tabIndex = 0;
+      labelSpan.onclick = function(e) {
+        e.stopPropagation();
+        document.querySelectorAll('.cat-label').forEach(s=>s.classList.remove('active'));
+        document.querySelectorAll('.cat-actions').forEach(a=>a.style.display='none');
+        labelSpan.classList.add('active');
+        actionsSpan.style.display = "inline-flex";
+      };
+      tdLabel.appendChild(labelSpan);
+
+      const actionsSpan = document.createElement("span");
+      actionsSpan.className = "cat-actions";
+      actionsSpan.innerHTML = `
           <button class="cat-btn" title="Mover para cima" onclick="moveCategoria('${cat.nome}', -1)">↑</button>
           <button class="cat-btn" title="Mover para baixo" onclick="moveCategoria('${cat.nome}', 1)">↓</button>
           <button class="cat-btn" title="Editar" onclick="editarCategoria('${cat.nome}')">✏️</button>
           <button class="cat-btn" title="Excluir" onclick="removerCategoria('${cat.nome}')">🗑️</button>
-        </span>`;
+      `;
+      tdLabel.appendChild(actionsSpan);
       tr.appendChild(tdLabel);
 
       for (let i = 0; i < 24; i++) {
@@ -119,21 +161,18 @@
         td.contentEditable = true;
         td.inputMode = "decimal";
         let valorAtual = valores[i] || "";
-
         td.textContent = valorAtual !== "" ? fmtBRL(parseFloat(valorAtual)) : "";
 
         td.addEventListener("focus", function() {
           let txt = td.textContent.replace(/[^\d,-]/g, '').replace(',', '.');
           td.textContent = (parseFloat(txt) || txt === "0" ? txt : "");
         });
-
         td.addEventListener("blur", function() {
           let txt = td.textContent.replace(/[^\d,-]/g, '').replace(',', '.');
           let vNum = parseFloat(txt);
           td.textContent = (txt.trim() === "" || isNaN(vNum)) ? "" : fmtBRL(vNum);
           atualizarEAtualizarDB();
         });
-
         tr.appendChild(td);
       }
       return tr;
@@ -183,32 +222,96 @@
       calcularTotais();
     }
 
+    // Adicionar categoria com modal elegante
     document.getElementById("addCategoryBtn").onclick = () => {
-      const nome = prompt("Nome da categoria:");
-      if (!nome) return;
-      let tipo = prompt("Tipo: receita ou despesa?").trim().toLowerCase();
-      if (!["receita", "despesa"].includes(tipo)) return alert("Digite receita ou despesa.");
-      categorias.push({ nome, tipo });
-      valoresPorCategoria[nome] = Array(24).fill("");
-      salvarCategorias();
-      renderizarTabela();
+      mostrarDropdownNovaCategoria();
     };
 
+    function mostrarDropdownNovaCategoria() {
+      // Modal dropdown custom
+      const modal = document.createElement('div');
+      modal.className = "dropdown-modal";
+      modal.innerHTML = `
+        <h3>Adicionar categoria</h3>
+        <input id="cat-nome-input" type="text" placeholder="Nome da categoria" maxlength="28" />
+        <select id="cat-tipo-select">
+          <option value="receita">Receita</option>
+          <option value="despesa">Despesa</option>
+        </select>
+        <button id="cat-add-confirm">Adicionar</button>
+      `;
+      const backdrop = document.createElement('div');
+      backdrop.className = "dropdown-backdrop";
+      backdrop.onclick = fecharDropdown;
+
+      function fecharDropdown() {
+        dropdownHolder.innerHTML = '';
+      }
+      dropdownHolder.innerHTML = '';
+      dropdownHolder.appendChild(backdrop);
+      dropdownHolder.appendChild(modal);
+
+      document.getElementById("cat-add-confirm").onclick = function() {
+        const nome = document.getElementById("cat-nome-input").value.trim();
+        const tipo = document.getElementById("cat-tipo-select").value;
+        if (!nome) { alert("Digite um nome."); return; }
+        if (!["receita", "despesa"].includes(tipo)) { alert("Tipo inválido."); return; }
+        if (categorias.find(c=>c.nome === nome)) { alert("Categoria já existe."); return; }
+        categorias.push({ nome, tipo });
+        valoresPorCategoria[nome] = Array(24).fill("");
+        salvarCategorias();
+        fecharDropdown();
+        renderizarTabela();
+      };
+      document.getElementById("cat-nome-input").focus();
+    }
+
+    // Editar categoria
     window.editarCategoria = function(nome) {
       const cat = categorias.find(c => c.nome === nome);
       if (!cat) return;
-      let novonome = prompt("Novo nome da categoria:", cat.nome);
-      if (!novonome || novonome.trim() === "" || novonome === cat.nome) return;
-      let tipo = prompt("Tipo: receita ou despesa?", cat.tipo).trim().toLowerCase();
-      if (!["receita", "despesa"].includes(tipo)) return alert("Digite receita ou despesa.");
-      valoresPorCategoria[novonome] = valoresPorCategoria[nome] || Array(24).fill("");
-      delete valoresPorCategoria[nome];
-      cat.nome = novonome;
-      cat.tipo = tipo;
-      salvarCategorias();
-      renderizarTabela();
+      mostrarDropdownEditarCategoria(cat);
     };
 
+    function mostrarDropdownEditarCategoria(cat) {
+      const modal = document.createElement('div');
+      modal.className = "dropdown-modal";
+      modal.innerHTML = `
+        <h3>Editar categoria</h3>
+        <input id="cat-nome-edit" type="text" value="${cat.nome}" maxlength="28" />
+        <select id="cat-tipo-edit">
+          <option value="receita"${cat.tipo==='receita'?' selected':''}>Receita</option>
+          <option value="despesa"${cat.tipo==='despesa'?' selected':''}>Despesa</option>
+        </select>
+        <button id="cat-edit-confirm">Salvar</button>
+      `;
+      const backdrop = document.createElement('div');
+      backdrop.className = "dropdown-backdrop";
+      backdrop.onclick = fecharDropdown;
+
+      function fecharDropdown() { dropdownHolder.innerHTML = ''; }
+      dropdownHolder.innerHTML = '';
+      dropdownHolder.appendChild(backdrop);
+      dropdownHolder.appendChild(modal);
+
+      document.getElementById("cat-edit-confirm").onclick = function() {
+        const novonome = document.getElementById("cat-nome-edit").value.trim();
+        const tipo = document.getElementById("cat-tipo-edit").value;
+        if (!novonome) { alert("Digite um nome."); return; }
+        if (!["receita", "despesa"].includes(tipo)) { alert("Tipo inválido."); return; }
+        if (novonome !== cat.nome && categorias.find(c=>c.nome === novonome)) { alert("Categoria já existe."); return; }
+        valoresPorCategoria[novonome] = valoresPorCategoria[cat.nome] || Array(24).fill("");
+        if (novonome !== cat.nome) delete valoresPorCategoria[cat.nome];
+        cat.nome = novonome;
+        cat.tipo = tipo;
+        salvarCategorias();
+        fecharDropdown();
+        renderizarTabela();
+      };
+      document.getElementById("cat-nome-edit").focus();
+    }
+
+    // Excluir categoria
     window.removerCategoria = function(nome) {
       if (!confirm("Remover categoria?")) return;
       categorias = categorias.filter(c => c.nome !== nome);
@@ -217,6 +320,7 @@
       renderizarTabela();
     };
 
+    // Reorganizar categorias
     window.moveCategoria = function(nome, dir) {
       const idx = categorias.findIndex(c => c.nome === nome);
       if (idx < 0) return;
@@ -227,11 +331,13 @@
       renderizarTabela();
     };
 
+    // Salva categorias e ordem
     function salvarCategorias() {
       db.ref("categorias").set(categorias);
       db.ref("valores").set(valoresPorCategoria);
     }
 
+    // Carrega do Firebase
     function carregarTudo() {
       db.ref("categorias").once("value", snap => {
         categorias = snap.val() || [];
@@ -242,6 +348,7 @@
       });
     }
 
+    // Chart.js gráfico
     const ctx = document.getElementById('chart').getContext('2d');
     const grafico = new Chart(ctx, {
       type: 'line',
@@ -279,6 +386,8 @@
 
     carregarTudo();
     window.addEventListener('resize', () => grafico.resize());
+
+    // Real time sync
     db.ref("categorias").on("value", snap => {
       categorias = snap.val() || [];
       db.ref("valores").once("value", valSnap => {
@@ -289,6 +398,12 @@
     db.ref("valores").on("value", valSnap => {
       valoresPorCategoria = valSnap.val() || {};
       renderizarTabela();
+    });
+
+    // Oculta ações ao clicar fora do label
+    document.body.addEventListener('click', function(e){
+      document.querySelectorAll('.cat-label').forEach(s=>s.classList.remove('active'));
+      document.querySelectorAll('.cat-actions').forEach(a=>a.style.display='none');
     });
   </script>
 </body>
