@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Fluxo de Caixa - 24 Meses</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f4f7fa;
+      margin: 0;
+      padding: 20px;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #333;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    thead {
+      background: #007BFF;
+      color: #fff;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ddd;
+      text-align: center;
+      min-width: 100px;
+    }
+    td[contenteditable] {
+      background-color: #fefefe;
+      cursor: pointer;
+    }
+    tr:hover td {
+      background-color: #f1f9ff;
+    }
+  </style>
+</head>
+<body>
+
+<h2>Planilha de Fluxo de Caixa (Próximos 24 Meses)</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Categoria</th>
+      <!-- Colunas de mês (preenchidas via JS) -->
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Receitas</td>
+    </tr>
+    <tr>
+      <td>Despesas Fixas</td>
+    </tr>
+    <tr>
+      <td>Despesas Variáveis</td>
+    </tr>
+    <tr>
+      <td>Investimentos</td>
+    </tr>
+    <tr>
+      <td>Outros</td>
+    </tr>
+  </tbody>
+</table>
+
+<script>
+  function gerarMesesProximos(qtd) {
+    const meses = [];
+    const hoje = new Date();
+    for (let i = 0; i < qtd; i++) {
+      const data = new Date(hoje.getFullYear(), hoje.getMonth() + i, 1);
+      const nomeMes = data.toLocaleString('pt-BR', { month: 'short', year: '2-digit' });
+      meses.push(nomeMes);
+    }
+    return meses;
+  }
+
+  const meses = gerarMesesProximos(24);
+  const theadRow = document.querySelector("thead tr");
+  const tbodyRows = document.querySelectorAll("tbody tr");
+
+  // Adiciona colunas com os nomes dos meses
+  meses.forEach(mes => {
+    const th = document.createElement("th");
+    th.textContent = mes;
+    theadRow.appendChild(th);
+  });
+
+  // Adiciona células editáveis para cada categoria
+  tbodyRows.forEach(tr => {
+    meses.forEach(() => {
+      const td = document.createElement("td");
+      td.contentEditable = true;
+      tr.appendChild(td);
+    });
+  });
+</script>
+
+</body>
+</html>
