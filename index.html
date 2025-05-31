@@ -23,11 +23,11 @@
     th:first-child, td:first-child { position: sticky; left: 0; background: #f7faff; text-align: left; z-index: 2; min-width: 136px; font-weight: 600; box-shadow: 3px 0 8px -7px #3333; }
     td[contenteditable="true"] { background-color: #f6faff; border-radius: 7px; outline: none; cursor: pointer; transition: background 0.12s; }
     td[contenteditable="true"]:focus { background: #e6f0ff; box-shadow: 0 0 0 2px #007bff33; }
-    tfoot tr { background: #f0f6ff; font-weight: 600; }
+    tfoot tr { background: #f0f6ff; }
+    .tfoot-bold { font-weight: bold !important; background: #e8f0fc !important;}
     .cat-actions { display: none; align-items: center; gap: 3px; margin-left: 4px; }
     .cat-btn { background: none; border: none; color: #999; font-size: 1em; cursor: pointer; padding: 1px 4px; border-radius: 3px; transition: color 0.15s, background 0.1s; }
     .cat-btn:hover { color: #007bff; background: #e7f0ff; }
-    .cat-label.active + .cat-actions { display: inline-flex !important; }
     .cat-label { cursor: pointer; user-select: none; }
     .cat-label.active { color: #007BFF; font-weight: bold; }
     .dropdown-backdrop {
@@ -67,13 +67,12 @@
         <thead>
           <tr>
             <th>Categoria</th>
-            <!-- Meses via JS -->
           </tr>
         </thead>
         <tbody></tbody>
         <tfoot>
           <tr id="monthlyTotalRow"><td>Saldo do Mês</td></tr>
-          <tr id="accumulatedTotalRow"><td>Saldo Acumulado</td></tr>
+          <tr id="accumulatedTotalRow" class="tfoot-bold"><td>Saldo Acumulado</td></tr>
         </tfoot>
       </table>
     </div>
@@ -81,7 +80,7 @@
   </div>
   <div id="dropdown-holder"></div>
   <script>
-    // Seu Firebase Config
+    // Firebase Config
     const firebaseConfig = {
       apiKey: "AIzaSyC8w5g9ot_LWkFgpsZN0UBDOeREeSd17UA",
       authDomain: "cashflow-6188e.firebaseapp.com",
@@ -110,6 +109,7 @@
     const acumuladoRow = document.getElementById("accumulatedTotalRow");
     const dropdownHolder = document.getElementById('dropdown-holder');
 
+    // Monta os cabeçalhos
     meses.forEach(m => {
       theadRow.innerHTML += `<th>${m}</th>`;
       totalRow.innerHTML += `<td>R$ 0,00</td>`;
@@ -178,15 +178,17 @@
       return tr;
     }
 
+    // Renderiza tabela E força cálculo dos totais sempre que renderizar
     function renderizarTabela() {
       tbody.innerHTML = '';
       categorias.forEach((cat, idx) => {
         const valores = valoresPorCategoria[cat.nome] || Array(24).fill("");
         tbody.appendChild(desenharLinhaCategoria(cat, idx, valores));
       });
-      calcularTotais();
+      calcularTotais(); // <--- sempre calcula após desenhar
     }
 
+    // Cálculo dos totais e saldo acumulado
     function calcularTotais() {
       const totais = Array(24).fill(0);
       const acumulados = Array(24).fill(0);
@@ -228,7 +230,6 @@
     };
 
     function mostrarDropdownNovaCategoria() {
-      // Modal dropdown custom
       const modal = document.createElement('div');
       modal.className = "dropdown-modal";
       modal.innerHTML = `
@@ -244,9 +245,7 @@
       backdrop.className = "dropdown-backdrop";
       backdrop.onclick = fecharDropdown;
 
-      function fecharDropdown() {
-        dropdownHolder.innerHTML = '';
-      }
+      function fecharDropdown() { dropdownHolder.innerHTML = ''; }
       dropdownHolder.innerHTML = '';
       dropdownHolder.appendChild(backdrop);
       dropdownHolder.appendChild(modal);
@@ -261,7 +260,7 @@
         valoresPorCategoria[nome] = Array(24).fill("");
         salvarCategorias();
         fecharDropdown();
-        renderizarTabela();
+        renderizarTabela(); // Força recalcular os totais
       };
       document.getElementById("cat-nome-input").focus();
     }
@@ -328,7 +327,7 @@
       if (novoIdx < 0 || novoIdx >= categorias.length) return;
       [categorias[idx], categorias[novoIdx]] = [categorias[novoIdx], categorias[idx]];
       salvarCategorias();
-      renderizarTabela();
+      renderizarTabela(); // Força recalcular os totais
     };
 
     // Salva categorias e ordem
