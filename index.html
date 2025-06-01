@@ -4,10 +4,8 @@
   <meta charset="UTF-8">
   <title>Fluxo de Caixa - 24 Meses</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-database-compat.js"></script>
-  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body { font-family: 'Inter', 'Segoe UI', Arial, sans-serif; background: #f5f6fa; margin: 0; padding: 0; min-height: 100vh; }
@@ -87,11 +85,10 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Sempre calcula todos os meses de jan/23 (ou outro início) até daqui a 24 meses
     const dataReferencia = new Date();
     const hoje = new Date(dataReferencia.getFullYear(), dataReferencia.getMonth(), 1);
-    const mesesTotal = 60; // total de meses no banco (passado+futuro)
-    let mostrarPassados = 0; // quantos meses passados mostrar além do padrão
+    const mesesTotal = 60;
+    let mostrarPassados = 0;
 
     function gerarMesesLista() {
       const meses = [];
@@ -133,6 +130,24 @@
 
     function fmtBRL(v) {
       return "R$ " + (isNaN(v) ? "0,00" : v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    }
+
+    function normalizarValoresCategorias() {
+      // Garante que todas as categorias tenham arrays do tamanho correto
+      let mudou = false;
+      categorias.forEach(cat => {
+        let arr = valoresPorCategoria[cat.nome] || [];
+        if (arr.length < meses.length) {
+          arr = arr.concat(Array(meses.length - arr.length).fill(""));
+          mudou = true;
+        }
+        if (arr.length > meses.length) {
+          arr = arr.slice(arr.length - meses.length);
+          mudou = true;
+        }
+        valoresPorCategoria[cat.nome] = arr;
+      });
+      return mudou;
     }
 
     function desenharLinhaCategoria(cat, idx, valores = []) {
@@ -197,11 +212,10 @@
 
     function renderizarTabela() {
       redesenharCabecalhos();
+      normalizarValoresCategorias();
       tbody.innerHTML = '';
       categorias.forEach((cat, idx) => {
         let valores = valoresPorCategoria[cat.nome] || [];
-        if (valores.length < meses.length) valores = valores.concat(Array(meses.length-valores.length).fill(""));
-        if (valores.length > meses.length) valores = valores.slice(-meses.length);
         tbody.appendChild(desenharLinhaCategoria(cat, idx, valores));
       });
       calcularTotais();
@@ -228,15 +242,17 @@
     }
 
     function atualizarEAtualizarDB() {
-      valoresPorCategoria = {};
+      // Atualiza array de cada categoria para ter o número correto de meses
+      let changed = normalizarValoresCategorias();
       tbody.querySelectorAll("tr").forEach(tr => {
         const nome = tr.dataset.nome;
-        const valores = [...tr.cells].slice(1).map(td => {
+        let arr = [];
+        [...tr.cells].slice(1).forEach((td, i) => {
           let txt = td.textContent.replace(/[^\d,-]/g, '').replace(',', '.');
           let val = parseFloat(txt);
-          return isNaN(val) ? "" : val;
+          arr[i] = isNaN(val) ? "" : val;
         });
-        valoresPorCategoria[nome] = valores;
+        valoresPorCategoria[nome] = arr;
       });
       db.ref("valores").set(valoresPorCategoria);
       calcularTotais();
@@ -278,6 +294,8 @@
         salvarCategorias();
         fecharDropdown();
         renderizarTabela();
+        calcularTotais();
+        atualizarEAtualizarDB();
       };
       document.getElementById("cat-nome-input").focus();
     }
@@ -322,6 +340,8 @@
         salvarCategorias();
         fecharDropdown();
         renderizarTabela();
+        calcularTotais();
+        atualizarEAtualizarDB();
       };
       document.getElementById("cat-nome-edit").focus();
     }
@@ -332,6 +352,8 @@
       delete valoresPorCategoria[nome];
       salvarCategorias();
       renderizarTabela();
+      calcularTotais();
+      atualizarEAtualizarDB();
     };
 
     window.moveCategoria = function(nome, dir) {
@@ -342,9 +364,12 @@
       [categorias[idx], categorias[novoIdx]] = [categorias[novoIdx], categorias[idx]];
       salvarCategorias();
       renderizarTabela();
+      calcularTotais();
+      atualizarEAtualizarDB();
     };
 
     function salvarCategorias() {
+      normalizarValoresCategorias();
       db.ref("categorias").set(categorias);
       db.ref("valores").set(valoresPorCategoria);
     }
@@ -355,6 +380,7 @@
         db.ref("valores").once("value", valSnap => {
           valoresPorCategoria = valSnap.val() || {};
           renderizarTabela();
+          calcularTotais();
         });
       });
     }
@@ -405,11 +431,13 @@
       db.ref("valores").once("value", valSnap => {
         valoresPorCategoria = valSnap.val() || {};
         renderizarTabela();
+        calcularTotais();
       });
     });
     db.ref("valores").on("value", valSnap => {
       valoresPorCategoria = valSnap.val() || {};
       renderizarTabela();
+      calcularTotais();
     });
 
     document.body.addEventListener('click', function(e){
@@ -424,6 +452,8 @@
         mostrarPassados += Math.min(3, restante);
         meses = gerarMesesLista();
         renderizarTabela();
+        calcularTotais();
+        atualizarEAtualizarDB();
       }
     };
   </script>
