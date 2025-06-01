@@ -88,16 +88,12 @@
     const db = firebase.database();
 
     // Sempre calcula todos os meses de jan/23 (ou outro início) até daqui a 24 meses
-    // Você pode alterar aqui o início se quiser!
     const dataReferencia = new Date();
-    const hoje = new Date(dataReferencia.getFullYear(), dataReferencia.getMonth(), 1); // mês atual (primeiro dia)
-    const mesesTotal = 60; // total de meses no banco (passado+futuro). Mude aqui se quiser mais histórico!
+    const hoje = new Date(dataReferencia.getFullYear(), dataReferencia.getMonth(), 1);
+    const mesesTotal = 60; // total de meses no banco (passado+futuro)
     let mostrarPassados = 0; // quantos meses passados mostrar além do padrão
 
-    // Gera lista global de meses
     function gerarMesesLista() {
-      // Por padrão: últimos X meses até mês atual, e 24 meses pra frente
-      // Mostra sempre (mesesFuturos + meses visíveis de passado)
       const meses = [];
       const start = new Date(hoje);
       start.setMonth(start.getMonth() - (mesesTotal - 24 - mostrarPassados));
@@ -107,7 +103,6 @@
         const ano = d.getFullYear().toString().slice(2);
         meses.push(`${mesAbrev.charAt(0).toUpperCase() + mesAbrev.slice(1)}/${ano}`);
       }
-      // Por padrão só mostra os últimos mostrarPassados meses + os próximos 24 meses
       const mostrarApos = mesesTotal - (24 + mostrarPassados);
       return meses.slice(mostrarApos);
     }
@@ -181,6 +176,13 @@
         td.addEventListener("focus", function() {
           let txt = td.textContent.replace(/[^\d,-]/g, '').replace(',', '.');
           td.textContent = (parseFloat(txt) || txt === "0" ? txt : "");
+          setTimeout(() => {
+            const range = document.createRange();
+            range.selectNodeContents(td);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }, 0);
         });
         td.addEventListener("blur", function() {
           let txt = td.textContent.replace(/[^\d,-]/g, '').replace(',', '.');
