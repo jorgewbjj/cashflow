@@ -85,153 +85,152 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Meses
-    const dataReferencia = new Date();
-    const hoje = new Date(dataReferencia.getFullYear(), dataReferencia.getMonth(), 1);
-    const mesesTotal = 60;
-    let mostrarPassados = 0;
-
-    function gerarMesesLista() {
-      const meses = [];
-      const start = new Date(hoje);
-      start.setMonth(start.getMonth() - (mesesTotal - 24 - mostrarPassados));
-      for (let i = 0; i < mesesTotal; i++) {
-        const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
-        const mesAbrev = d.toLocaleString('pt-BR', { month: 'short' }).replace('.', '');
-        const ano = d.getFullYear().toString().slice(2);
-        meses.push(`${mesAbrev.charAt(0).toUpperCase() + mesAbrev.slice(1)}/${ano}`);
+    // ----------- DEFINIÇÃO DOS MESES FIXOS ------------
+    // Se não existir no banco, cria uma vez só!
+    const mesesPadrao = (() => {
+      // Exemplo: Começando em Jan/2024 até Dez/2025 (24 meses) + 36 meses atrás (total 60)
+      let array = [];
+      let start = new Date(2020, 0, 1); // Ajuste para o primeiro mês desejado!
+      for (let i = 0; i < 60; i++) {
+        let d = new Date(start.getFullYear(), start.getMonth() + i, 1);
+        let mesAbrev = d.toLocaleString('pt-BR', { month: 'short' }).replace('.', '');
+        let ano = d.getFullYear().toString().slice(2);
+        array.push(`${mesAbrev.charAt(0).toUpperCase() + mesAbrev.slice(1)}/${ano}`);
       }
-      const mostrarApos = mesesTotal - (24 + mostrarPassados);
-      return meses.slice(mostrarApos);
+      return array;
+    })();
+
+    // Número de meses visíveis (começa nos 24 últimos)
+    let visiveis = 24;
+
+    // Estado global
+    let meses = [];
+    let categorias = [];
+    let valoresPorCategoria = {};
+
+    // 1. Carrega/Salva meses fixos uma vez só
+    function inicializaMesesFixos(callback) {
+      db.ref("meses").once("value", snap => {
+        if (snap.exists() && Array.isArray(snap.val())) {
+          meses = snap.val();
+          callback();
+        } else {
+          meses = mesesPadrao;
+          db.ref("meses").set(mesesPadrao, callback);
+        }
+      });
     }
 
-    let meses = gerarMesesLista();
+    // Formata BRL
+    function fmtBRL(v) {
+      return "R$ " + (isNaN(v) ? "0,00" : v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    }
 
-    const table = document.getElementById("cashFlowTable");
-    const theadRow = table.querySelector("thead tr");
-    const tbody = table.querySelector("tbody");
-    const totalRow = document.getElementById("monthlyTotalRow");
-    const acumuladoRow = document.getElementById("accumulatedTotalRow");
-    const dropdownHolder = document.getElementById('dropdown-holder');
-    const showPastMonthsBtn = document.getElementById('showPastMonthsBtn');
-
+    // Cabeçalho dinâmico
     function redesenharCabecalhos() {
+      const theadRow = document.querySelector("thead tr");
+      const totalRow = document.getElementById("monthlyTotalRow");
+      const acumuladoRow = document.getElementById("accumulatedTotalRow");
       theadRow.innerHTML = "<th>Categoria</th>";
       totalRow.innerHTML = "<td>Saldo do Mês</td>";
       acumuladoRow.innerHTML = "<td>Saldo Acumulado</td>";
-      meses.forEach(m => {
+      let inicio = meses.length - visiveis;
+      let fim = meses.length;
+      meses.slice(inicio, fim).forEach(m => {
         theadRow.innerHTML += `<th>${m}</th>`;
         totalRow.innerHTML += `<td>R$ 0,00</td>`;
         acumuladoRow.innerHTML += `<td>R$ 0,00</td>`;
       });
     }
 
-    let categorias = [];
-    let valoresPorCategoria = {};
-
-    function fmtBRL(v) {
-      return "R$ " + (isNaN(v) ? "0,00" : v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-    }
-
+    // Ajusta arrays
     function normalizarValoresCategorias() {
-      let mudou = false;
       categorias.forEach(cat => {
         let arr = valoresPorCategoria[cat.nome] || [];
-        if (arr.length < meses.length) {
-          arr = arr.concat(Array(meses.length - arr.length).fill(""));
-          mudou = true;
-        }
-        if (arr.length > meses.length) {
-          arr = arr.slice(arr.length - meses.length);
-          mudou = true;
-        }
+        if (arr.length < meses.length) arr = arr.concat(Array(meses.length - arr.length).fill(""));
+        if (arr.length > meses.length) arr = arr.slice(arr.length - meses.length);
         valoresPorCategoria[cat.nome] = arr;
       });
-      return mudou;
     }
 
-    function desenharLinhaCategoria(cat, idx, valores = []) {
-      const tr = document.createElement("tr");
-      tr.dataset.nome = cat.nome;
-      tr.dataset.tipo = cat.tipo;
-      tr.dataset.idx = idx;
-
-      const tdLabel = document.createElement("td");
-      const labelSpan = document.createElement("span");
-      labelSpan.textContent = cat.nome;
-      labelSpan.className = "cat-label";
-      labelSpan.tabIndex = 0;
-      labelSpan.onclick = function(e) {
-        e.stopPropagation();
-        document.querySelectorAll('.cat-label').forEach(s=>s.classList.remove('active'));
-        document.querySelectorAll('.cat-actions').forEach(a=>a.style.display='none');
-        labelSpan.classList.add('active');
-        actionsSpan.style.display = "inline-flex";
-      };
-      tdLabel.appendChild(labelSpan);
-
-      const actionsSpan = document.createElement("span");
-      actionsSpan.className = "cat-actions";
-      actionsSpan.innerHTML = `
+    // Renderiza tabela
+    function renderizarTabela() {
+      redesenharCabecalhos();
+      normalizarValoresCategorias();
+      const tbody = document.querySelector("tbody");
+      tbody.innerHTML = '';
+      let inicio = meses.length - visiveis;
+      let fim = meses.length;
+      categorias.forEach((cat, idx) => {
+        let valores = valoresPorCategoria[cat.nome] || [];
+        const tr = document.createElement("tr");
+        tr.dataset.nome = cat.nome;
+        tr.dataset.tipo = cat.tipo;
+        tr.dataset.idx = idx;
+        const tdLabel = document.createElement("td");
+        const labelSpan = document.createElement("span");
+        labelSpan.textContent = cat.nome;
+        labelSpan.className = "cat-label";
+        labelSpan.tabIndex = 0;
+        labelSpan.onclick = function(e) {
+          e.stopPropagation();
+          document.querySelectorAll('.cat-label').forEach(s=>s.classList.remove('active'));
+          document.querySelectorAll('.cat-actions').forEach(a=>a.style.display='none');
+          labelSpan.classList.add('active');
+          actionsSpan.style.display = "inline-flex";
+        };
+        tdLabel.appendChild(labelSpan);
+        const actionsSpan = document.createElement("span");
+        actionsSpan.className = "cat-actions";
+        actionsSpan.innerHTML = `
           <button class="cat-btn" title="Mover para cima" onclick="moveCategoria('${cat.nome}', -1)">↑</button>
           <button class="cat-btn" title="Mover para baixo" onclick="moveCategoria('${cat.nome}', 1)">↓</button>
           <button class="cat-btn" title="Editar" onclick="editarCategoria('${cat.nome}')">✏️</button>
           <button class="cat-btn" title="Excluir" onclick="removerCategoria('${cat.nome}')">🗑️</button>
-      `;
-      tdLabel.appendChild(actionsSpan);
-      tr.appendChild(tdLabel);
+        `;
+        tdLabel.appendChild(actionsSpan);
+        tr.appendChild(tdLabel);
 
-      for (let i = 0; i < meses.length; i++) {
-        const td = document.createElement("td");
-        td.contentEditable = true;
-        td.inputMode = "decimal";
-        let valorAtual = valores[i] || "";
-        td.textContent = valorAtual !== "" ? fmtBRL(parseFloat(valorAtual)) : "";
-
-        td.addEventListener("focus", function() {
-          let txt = td.textContent.replace(/[^\d,-]/g, '').replace(',', '.');
-          td.textContent = (parseFloat(txt) || txt === "0" ? txt : "");
-          setTimeout(() => {
-            const range = document.createRange();
-            range.selectNodeContents(td);
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(range);
-          }, 0);
-        });
-
-        td.addEventListener("blur", function() {
-          let txt = td.textContent.replace(/[^\d,-]/g, '').replace(',', '.');
-          let vNum = parseFloat(txt);
-          td.textContent = (txt.trim() === "" || isNaN(vNum)) ? "" : fmtBRL(vNum);
-
-          // Atualiza estado e banco!
-          const nomeCat = tr.dataset.nome;
-          valoresPorCategoria[nomeCat][i] = (txt.trim() === "" || isNaN(vNum)) ? "" : vNum;
-          salvarCategorias();
-          calcularTotais();
-        });
-
-        tr.appendChild(td);
-      }
-      return tr;
-    }
-
-    function renderizarTabela() {
-      redesenharCabecalhos();
-      normalizarValoresCategorias();
-      tbody.innerHTML = '';
-      categorias.forEach((cat, idx) => {
-        let valores = valoresPorCategoria[cat.nome] || [];
-        tbody.appendChild(desenharLinhaCategoria(cat, idx, valores));
+        for (let i = inicio; i < fim; i++) {
+          const td = document.createElement("td");
+          td.contentEditable = true;
+          td.inputMode = "decimal";
+          let valorAtual = valores[i] || "";
+          td.textContent = valorAtual !== "" ? fmtBRL(parseFloat(valorAtual)) : "";
+          td.addEventListener("focus", function() {
+            let txt = td.textContent.replace(/[^\d,-]/g, '').replace(',', '.');
+            td.textContent = (parseFloat(txt) || txt === "0" ? txt : "");
+            setTimeout(() => {
+              const range = document.createRange();
+              range.selectNodeContents(td);
+              const sel = window.getSelection();
+              sel.removeAllRanges();
+              sel.addRange(range);
+            }, 0);
+          });
+          td.addEventListener("blur", function() {
+            let txt = td.textContent.replace(/[^\d,-]/g, '').replace(',', '.');
+            let vNum = parseFloat(txt);
+            td.textContent = (txt.trim() === "" || isNaN(vNum)) ? "" : fmtBRL(vNum);
+            valoresPorCategoria[cat.nome][i] = (txt.trim() === "" || isNaN(vNum)) ? "" : vNum;
+            salvarCategorias();
+            calcularTotais();
+          });
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
       });
       calcularTotais();
     }
 
     function calcularTotais() {
-      const totais = Array(meses.length).fill(0);
-      const acumulados = Array(meses.length).fill(0);
-      tbody.querySelectorAll("tr").forEach(tr => {
+      const totalRow = document.getElementById("monthlyTotalRow");
+      const acumuladoRow = document.getElementById("accumulatedTotalRow");
+      let inicio = meses.length - visiveis;
+      let fim = meses.length;
+      const totais = Array(visiveis).fill(0);
+      const acumulados = Array(visiveis).fill(0);
+      document.querySelectorAll("tbody tr").forEach(tr => {
         const tipo = tr.dataset.tipo;
         [...tr.cells].slice(1).forEach((td, idx) => {
           let txt = td.textContent.replace(/[^\d,-]/g, '').replace(',', '.');
@@ -360,6 +359,7 @@
       calcularTotais();
     };
 
+    // Carrega tudo do banco e renderiza
     function carregarTudo() {
       db.ref("categorias").once("value", snap => {
         categorias = snap.val() || [];
@@ -376,7 +376,7 @@
     const grafico = new Chart(ctx, {
       type: 'line',
       data: {
-        labels: meses,
+        labels: [],
         datasets: [{
           label: 'Saldo Acumulado',
           data: [],
@@ -403,12 +403,18 @@
     });
 
     function atualizarGrafico(data) {
+      let inicio = meses.length - visiveis;
+      let fim = meses.length;
+      grafico.data.labels = meses.slice(inicio, fim);
       grafico.data.datasets[0].data = data;
-      grafico.data.labels = meses;
       grafico.update();
     }
 
-    carregarTudo();
+    // Inicialização com meses fixos!
+    inicializaMesesFixos(() => {
+      carregarTudo();
+    });
+
     window.addEventListener('resize', () => grafico.resize());
 
     // Real time sync
@@ -431,11 +437,10 @@
       document.querySelectorAll('.cat-actions').forEach(a=>a.style.display='none');
     });
 
+    // Mostra mais 3 meses anteriores
     showPastMonthsBtn.onclick = function() {
-      if (mostrarPassados < (mesesTotal - 24)) {
-        let restante = mesesTotal - 24 - mostrarPassados;
-        mostrarPassados += Math.min(3, restante);
-        meses = gerarMesesLista();
+      if (visiveis < meses.length) {
+        visiveis = Math.min(meses.length, visiveis + 3);
         renderizarTabela();
         calcularTotais();
       }
