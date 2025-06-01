@@ -85,52 +85,29 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Meses fixos de Jan/2023 até Dez/2028
-    const mesesPadrao = (() => {
-      let array = [];
-      let start = new Date(2023, 0, 1);
-      for (let i = 0; i < 72; i++) {
-        let d = new Date(start.getFullYear(), start.getMonth() + i, 1);
+    // Função para gerar os meses DINAMICAMENTE a partir do mês atual
+    function gerarMeses(janelaVisivel, mesesAnteriores) {
+      const meses = [];
+      const hoje = new Date();
+      hoje.setDate(1); // garante dia 1 para evitar problemas em meses curtos
+      // Avança para meses anteriores, se houver
+      let dataInicio = new Date(hoje);
+      dataInicio.setMonth(dataInicio.getMonth() - mesesAnteriores);
+
+      for (let i = 0; i < janelaVisivel; i++) {
+        let d = new Date(dataInicio.getFullYear(), dataInicio.getMonth() + i, 1);
         let mesAbrev = d.toLocaleString('pt-BR', { month: 'short' }).replace('.', '');
         let ano = d.getFullYear().toString().slice(2);
-        array.push(`${mesAbrev.charAt(0).toUpperCase() + mesAbrev.slice(1)}/${ano}`);
+        meses.push(`${mesAbrev.charAt(0).toUpperCase() + mesAbrev.slice(1)}/${ano}`);
       }
-      return array;
-    })();
+      return meses;
+    }
 
-    let meses = [];
+    let visiveis = 24;
+    let mesesAnterioresVisiveis = 0;
+    let meses = gerarMeses(visiveis, mesesAnterioresVisiveis);
     let categorias = [];
     let valoresPorCategoria = {};
-    let visiveis = 24;
-    let inicioVisivel = 0;
-
-    // Busca o índice do mês atual no array de meses
-    function setInicioMesAtual() {
-      const hoje = new Date();
-      const mesAtual = hoje.getMonth();
-      const anoAtual = hoje.getFullYear() % 100;
-      let mesFormatado = hoje.toLocaleString('pt-BR', { month: 'short' }).replace('.', '');
-      mesFormatado = mesFormatado.charAt(0).toUpperCase() + mesFormatado.slice(1);
-      let atualStr = `${mesFormatado}/${anoAtual < 10 ? '0'+anoAtual : anoAtual}`;
-      let idx = meses.findIndex(m => m === atualStr);
-      inicioVisivel = idx >= 0 ? idx : 0;
-    }
-
-    function inicializaMesesFixos(callback) {
-      db.ref("meses").once("value", snap => {
-        if (snap.exists() && Array.isArray(snap.val())) {
-          meses = snap.val();
-          setInicioMesAtual();
-          callback();
-        } else {
-          meses = mesesPadrao;
-          db.ref("meses").set(mesesPadrao, () => {
-            setInicioMesAtual();
-            callback();
-          });
-        }
-      });
-    }
 
     function redesenharCabecalhos() {
       const theadRow = document.querySelector("thead tr");
@@ -139,8 +116,7 @@
       theadRow.innerHTML = "<th>Categoria</th>";
       totalRow.innerHTML = "<td>Saldo do Mês</td>";
       acumuladoRow.innerHTML = "<td>Saldo Acumulado</td>";
-      let fim = Math.min(inicioVisivel + visiveis, meses.length);
-      meses.slice(inicioVisivel, fim).forEach(m => {
+      meses.forEach(m => {
         theadRow.innerHTML += `<th>${m}</th>`;
         totalRow.innerHTML += `<td>R$ 0,00</td>`;
         acumuladoRow.innerHTML += `<td>R$ 0,00</td>`;
@@ -161,7 +137,6 @@
       normalizarValoresCategorias();
       const tbody = document.querySelector("tbody");
       tbody.innerHTML = '';
-      let fim = Math.min(inicioVisivel + visiveis, meses.length);
       categorias.forEach((cat, idx) => {
         let valores = valoresPorCategoria[cat.nome] || [];
         const tr = document.createElement("tr");
@@ -192,7 +167,7 @@
         tdLabel.appendChild(actionsSpan);
         tr.appendChild(tdLabel);
 
-        for (let i = inicioVisivel; i < fim; i++) {
+        for (let i = 0; i < meses.length; i++) {
           const td = document.createElement("td");
           td.contentEditable = true;
           td.inputMode = "decimal";
@@ -227,9 +202,8 @@
     function calcularTotais() {
       const totalRow = document.getElementById("monthlyTotalRow");
       const acumuladoRow = document.getElementById("accumulatedTotalRow");
-      let fim = Math.min(inicioVisivel + visiveis, meses.length);
-      const totais = Array(fim - inicioVisivel).fill(0);
-      const acumulados = Array(fim - inicioVisivel).fill(0);
+      const totais = Array(meses.length).fill(0);
+      const acumulados = Array(meses.length).fill(0);
       document.querySelectorAll("tbody tr").forEach(tr => {
         const tipo = tr.dataset.tipo;
         [...tr.cells].slice(1).forEach((td, idx) => {
@@ -406,15 +380,18 @@
     });
 
     function atualizarGrafico(data) {
-      let fim = Math.min(inicioVisivel + visiveis, meses.length);
-      grafico.data.labels = meses.slice(inicioVisivel, fim);
+      grafico.data.labels = meses;
       grafico.data.datasets[0].data = data;
       grafico.update();
     }
 
-    inicializaMesesFixos(() => {
-      carregarTudo();
-    });
+    // Inicialização: SEMPRE gera meses baseados no mês atual!
+    function atualizarMeses() {
+      meses = gerarMeses(visiveis + mesesAnterioresVisiveis, mesesAnterioresVisiveis);
+    }
+    atualizarMeses();
+
+    carregarTudo();
 
     window.addEventListener('resize', () => grafico.resize());
 
@@ -438,13 +415,12 @@
       document.querySelectorAll('.cat-actions').forEach(a=>a.style.display='none');
     });
 
-    // Mostra mais 3 meses anteriores (desliza janela para trás)
+    // Botão "Mostrar meses anteriores"
     document.getElementById('showPastMonthsBtn').onclick = function() {
-      if (inicioVisivel > 0) {
-        inicioVisivel = Math.max(0, inicioVisivel - 3);
-        renderizarTabela();
-        calcularTotais();
-      }
+      mesesAnterioresVisiveis += 3;
+      atualizarMeses();
+      renderizarTabela();
+      calcularTotais();
     };
   </script>
 </body>
