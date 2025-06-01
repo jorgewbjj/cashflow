@@ -4,11 +4,49 @@
   <meta charset="UTF-8">
   <title>Fluxo de Caixa - 24 Meses</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.11.1/firebase-database-compat.js"></script>
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    /* ... seu CSS permanece igual ... */
+    body { font-family: 'Inter', 'Segoe UI', Arial, sans-serif; background: #f5f6fa; margin: 0; padding: 0; min-height: 100vh; }
+    .container { max-width: 98vw; margin: 24px auto; padding: 8px; }
+    h2 { font-weight: 700; font-size: 1.35rem; margin-bottom: 16px; color: #222; letter-spacing: -1px; text-align: center; }
+    .actions-bar { display: flex; gap: 10px; justify-content: flex-end; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
+    #addCategoryBtn, #showPastMonthsBtn { background: #fff; border: 1px solid #007BFF; color: #007BFF; padding: 6px 14px; border-radius: 8px; font-size: 0.98rem; font-weight: 500; cursor: pointer; transition: background 0.1s, color 0.1s; box-shadow: 0 1px 4px #0001; }
+    #addCategoryBtn:hover, #showPastMonthsBtn:hover { background: #007BFF; color: #fff; }
+    .table-container { width: 100%; overflow-x: auto; background: #fff; border-radius: 14px; box-shadow: 0 3px 14px #0001; padding: 8px 0 8px 0; }
+    table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 680px; font-size: 0.98rem; background: #fff; }
+    thead tr { background: #007BFF; color: #fff; }
+    th, td { padding: 5px 8px; border-bottom: 1px solid #e3e7ee; min-width: 74px; text-align: right; white-space: nowrap; }
+    th:first-child, td:first-child { position: sticky; left: 0; background: #f7faff; text-align: left; z-index: 2; min-width: 136px; font-weight: 600; box-shadow: 3px 0 8px -7px #3333; }
+    td[contenteditable="true"] { background-color: #f6faff; border-radius: 7px; outline: none; cursor: pointer; transition: background 0.12s; }
+    td[contenteditable="true"]:focus { background: #e6f0ff; box-shadow: 0 0 0 2px #007bff33; }
+    tfoot tr { background: #f0f6ff; }
+    .tfoot-bold { font-weight: bold !important; background: #e8f0fc !important;}
+    .cat-actions { display: none; align-items: center; gap: 3px; margin-left: 4px; }
+    .cat-btn { background: none; border: none; color: #999; font-size: 1em; cursor: pointer; padding: 1px 4px; border-radius: 3px; transition: color 0.15s, background 0.1s; }
+    .cat-btn:hover { color: #007bff; background: #e7f0ff; }
+    .cat-label { cursor: pointer; user-select: none; }
+    .cat-label.active { color: #007BFF; font-weight: bold; }
+    .dropdown-backdrop { position: fixed; left:0; top:0; right:0; bottom:0; z-index:11; background:transparent; }
+    .dropdown-modal { position: fixed; left:50%; top:18%; transform:translate(-50%,0); z-index:12; background: #fff; border-radius: 10px; box-shadow: 0 4px 24px #007bff10; padding: 28px 20px 18px 20px; min-width:270px; display:flex; flex-direction:column; align-items:center; animation: fadeIn .16s; }
+    @keyframes fadeIn { from{opacity:0;transform:translate(-50%,-20px);} to{opacity:1;transform:translate(-50%,0);} }
+    .dropdown-modal h3 { font-size: 1.08rem; font-weight: 600; color: #222; margin: 0 0 16px 0;}
+    .dropdown-modal input[type="text"] { width:100%; padding: 7px; border-radius: 7px; border: 1px solid #ccc; margin-bottom:12px; font-size:1rem;}
+    .dropdown-modal select { width:100%; padding:7px; border-radius:7px; border:1px solid #ccc; font-size:1rem; margin-bottom:12px;}
+    .dropdown-modal button { background:#007BFF; border:none; color:#fff; border-radius:6px; padding:7px 18px; font-size:1rem; font-weight:500; cursor:pointer;}
+    .dropdown-modal button:hover { background:#005fd1; }
+    @media (max-width: 760px) {
+      .container { max-width: 99vw; margin: 0; padding: 2px; }
+      h2 { font-size: 1rem; }
+      th, td { min-width: 56px; font-size: 0.93rem; padding: 4px 4px; }
+      th:first-child, td:first-child { min-width: 95px; }
+      .table-container { padding: 0; }
+      .dropdown-modal { min-width: 93vw; }
+    }
+    #chart { margin-top: 16px; max-width: 99vw; background: #fff; border-radius: 14px; box-shadow: 0 2px 14px #0001; padding: 10px 0; min-height: 120px; }
   </style>
 </head>
 <body>
@@ -36,7 +74,7 @@
   </div>
   <div id="dropdown-holder"></div>
   <script>
-    // Firebase Config
+    // --- CONFIG FIREBASE
     const firebaseConfig = {
       apiKey: "AIzaSyC8w5g9ot_LWkFgpsZN0UBDOeREeSd17UA",
       authDomain: "cashflow-6188e.firebaseapp.com",
@@ -49,26 +87,26 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Parâmetros globais
+    // --------- VARIÁVEIS GLOBAIS --------------
     let visiveis = 24;
     let mesesAnterioresVisiveis = 0;
     let meses = [];
     let categorias = [];
     let valoresPorCategoria = {};
 
-    function gerarMeses(janelaVisivel, mesesAnteriores) {
-      const meses = [];
+    function gerarMeses(qtd, mesesAnteriores) {
+      const lista = [];
       const hoje = new Date();
       hoje.setDate(1);
-      let dataInicio = new Date(hoje);
-      dataInicio.setMonth(dataInicio.getMonth() - mesesAnteriores);
-      for (let i = 0; i < janelaVisivel; i++) {
-        let d = new Date(dataInicio.getFullYear(), dataInicio.getMonth() + i, 1);
+      let inicio = new Date(hoje);
+      inicio.setMonth(inicio.getMonth() - mesesAnteriores);
+      for (let i = 0; i < qtd; i++) {
+        let d = new Date(inicio.getFullYear(), inicio.getMonth() + i, 1);
         let mesAbrev = d.toLocaleString('pt-BR', { month: 'short' }).replace('.', '');
         let ano = d.getFullYear().toString().slice(2);
-        meses.push(`${mesAbrev.charAt(0).toUpperCase() + mesAbrev.slice(1)}/${ano}`);
+        lista.push(`${mesAbrev.charAt(0).toUpperCase() + mesAbrev.slice(1)}/${ano}`);
       }
-      return meses;
+      return lista;
     }
 
     function atualizarMeses() {
@@ -76,6 +114,7 @@
     }
     atualizarMeses();
 
+    // ----------- RENDERIZAÇÃO TABELA E TOTAL -----------
     function redesenharCabecalhos() {
       const theadRow = document.querySelector("thead tr");
       const totalRow = document.getElementById("monthlyTotalRow");
@@ -100,7 +139,7 @@
     }
 
     function renderizarTabela() {
-      atualizarMeses(); // <--- Garante que os meses estão certos ANTES de desenhar
+      atualizarMeses();
       redesenharCabecalhos();
       normalizarValoresCategorias();
       const tbody = document.querySelector("tbody");
@@ -199,12 +238,9 @@
       db.ref("valores").set(valoresPorCategoria);
     }
 
+    // ---- ADICIONAR CATEGORIA MODAL ----
     document.getElementById("addCategoryBtn").onclick = () => {
-      mostrarDropdownNovaCategoria();
-    };
-
-    function mostrarDropdownNovaCategoria() {
-      atualizarMeses(); // <--- Corrige bug: sempre usa meses corretos ao adicionar categoria
+      atualizarMeses();
       const modal = document.createElement('div');
       modal.className = "dropdown-modal";
       modal.innerHTML = `
@@ -235,19 +271,15 @@
         valoresPorCategoria[nome] = Array(meses.length).fill("");
         salvarCategorias();
         fecharDropdown();
-        // NÃO chame renderizarTabela() aqui, o Firebase fará isso automaticamente!
       };
       document.getElementById("cat-nome-input").focus();
     }
 
+    // ---- EDIÇÃO, EXCLUSÃO, MOVER ----
     window.editarCategoria = function(nome) {
+      atualizarMeses();
       const cat = categorias.find(c => c.nome === nome);
       if (!cat) return;
-      mostrarDropdownEditarCategoria(cat);
-    };
-
-    function mostrarDropdownEditarCategoria(cat) {
-      atualizarMeses();
       const modal = document.createElement('div');
       modal.className = "dropdown-modal";
       modal.innerHTML = `
@@ -262,7 +294,6 @@
       const backdrop = document.createElement('div');
       backdrop.className = "dropdown-backdrop";
       backdrop.onclick = fecharDropdown;
-
       function fecharDropdown() { dropdownHolder.innerHTML = ''; }
       dropdownHolder.innerHTML = '';
       dropdownHolder.appendChild(backdrop);
@@ -311,7 +342,7 @@
       });
     }
 
-    // Chart.js gráfico
+    // ------ GRÁFICO
     const ctx = document.getElementById('chart').getContext('2d');
     const grafico = new Chart(ctx, {
       type: 'line',
@@ -341,19 +372,17 @@
         }
       }
     });
-
     function atualizarGrafico(data) {
       grafico.data.labels = meses;
       grafico.data.datasets[0].data = data;
       grafico.update();
     }
 
-    // Inicialização
+    // ----------- INICIALIZAÇÃO
     carregarTudo();
-
     window.addEventListener('resize', () => grafico.resize());
 
-    // Real time sync (apenas renderiza tabela - não duplique funções aqui!)
+    // ------- SYNC REAL TIME
     db.ref("categorias").on("value", snap => {
       categorias = snap.val() || [];
       db.ref("valores").once("value", valSnap => {
@@ -368,12 +397,13 @@
       calcularTotais();
     });
 
+    // Oculta botões de ações
     document.body.addEventListener('click', function(e){
       document.querySelectorAll('.cat-label').forEach(s=>s.classList.remove('active'));
       document.querySelectorAll('.cat-actions').forEach(a=>a.style.display='none');
     });
 
-    // Botão "Mostrar meses anteriores"
+    // ---- Mostrar meses anteriores ----
     document.getElementById('showPastMonthsBtn').onclick = function() {
       mesesAnterioresVisiveis += 3;
       renderizarTabela();
