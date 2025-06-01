@@ -89,9 +89,10 @@
     let mesesAnterioresVisiveis = 0;
     let meses = [];
     let categorias = [];
-    let valoresPorCategoria = {};
+    let valoresPorCategoria = {}; // { [categoria]: { [yyyymm]: valor } }
 
-    function gerarMeses(qtd, mesesAnteriores) {
+    // Utilitário para gerar meses e keys (ex: 202506)
+    function gerarMesesDetalhados(qtd, mesesAnteriores) {
       const lista = [];
       const hoje = new Date();
       hoje.setDate(1);
@@ -101,12 +102,17 @@
         let d = new Date(inicio.getFullYear(), inicio.getMonth() + i, 1);
         let mesAbrev = d.toLocaleString('pt-BR', { month: 'short' }).replace('.', '');
         let ano = d.getFullYear().toString().slice(2);
-        lista.push(`${mesAbrev.charAt(0).toUpperCase() + mesAbrev.slice(1)}/${ano}`);
+        let mesNum = (d.getMonth() + 1).toString().padStart(2, '0');
+        let key = `${d.getFullYear()}${mesNum}`;
+        lista.push({
+          label: `${mesAbrev.charAt(0).toUpperCase() + mesAbrev.slice(1)}/${ano}`,
+          key
+        });
       }
       return lista;
     }
     function atualizarMeses() {
-      meses = gerarMeses(visiveis + mesesAnterioresVisiveis, mesesAnterioresVisiveis);
+      meses = gerarMesesDetalhados(visiveis + mesesAnterioresVisiveis, mesesAnterioresVisiveis);
     }
     atualizarMeses();
 
@@ -118,29 +124,19 @@
       totalRow.innerHTML = "<td>Saldo do Mês</td>";
       acumuladoRow.innerHTML = "<td>Saldo Acumulado</td>";
       meses.forEach(m => {
-        theadRow.innerHTML += `<th>${m}</th>`;
+        theadRow.innerHTML += `<th>${m.label}</th>`;
         totalRow.innerHTML += `<td>R$ 0,00</td>`;
         acumuladoRow.innerHTML += `<td>R$ 0,00</td>`;
-      });
-    }
-
-    function normalizarValoresCategorias() {
-      categorias.forEach(cat => {
-        let arr = valoresPorCategoria[cat.nome] || [];
-        if (arr.length < meses.length) arr = arr.concat(Array(meses.length - arr.length).fill(""));
-        if (arr.length > meses.length) arr = arr.slice(arr.length - meses.length);
-        valoresPorCategoria[cat.nome] = arr;
       });
     }
 
     function renderizarTabela() {
       atualizarMeses();
       redesenharCabecalhos();
-      normalizarValoresCategorias();
       const tbody = document.querySelector("tbody");
       tbody.innerHTML = '';
       categorias.forEach((cat, idx) => {
-        let valores = valoresPorCategoria[cat.nome] || [];
+        let valores = valoresPorCategoria[cat.nome] || {};
         const tr = document.createElement("tr");
         tr.dataset.nome = cat.nome;
         tr.dataset.tipo = cat.tipo;
@@ -173,7 +169,8 @@
           const td = document.createElement("td");
           td.contentEditable = true;
           td.inputMode = "decimal";
-          let valorAtual = valores[i] || "";
+          let key = meses[i].key;
+          let valorAtual = (valores && valores[key] !== undefined && valores[key] !== null) ? valores[key] : "";
           td.textContent = valorAtual !== "" ? fmtBRL(parseFloat(valorAtual)) : "";
           td.addEventListener("focus", function() {
             let txt = td.textContent.replace(/[^\d,-]/g, '').replace(',', '.');
@@ -190,7 +187,8 @@
             let txt = td.textContent.replace(/[^\d,-]/g, '').replace(',', '.');
             let vNum = parseFloat(txt);
             td.textContent = (txt.trim() === "" || isNaN(vNum)) ? "" : fmtBRL(vNum);
-            valoresPorCategoria[cat.nome][i] = (txt.trim() === "" || isNaN(vNum)) ? "" : vNum;
+            if (!valoresPorCategoria[cat.nome]) valoresPorCategoria[cat.nome] = {};
+            valoresPorCategoria[cat.nome][key] = (txt.trim() === "" || isNaN(vNum)) ? "" : vNum;
             salvarCategorias();
             calcularTotais();
           });
@@ -206,11 +204,11 @@
       const acumuladoRow = document.getElementById("accumulatedTotalRow");
       const totais = Array(meses.length).fill(0);
       const acumulados = Array(meses.length).fill(0);
-      document.querySelectorAll("tbody tr").forEach(tr => {
-        const tipo = tr.dataset.tipo;
-        [...tr.cells].slice(1).forEach((td, idx) => {
-          let txt = td.textContent.replace(/[^\d,-]/g, '').replace(',', '.');
-          let val = parseFloat(txt) || 0;
+      categorias.forEach(cat => {
+        const tipo = cat.tipo;
+        const valores = valoresPorCategoria[cat.nome] || {};
+        meses.forEach((m, idx) => {
+          let val = parseFloat(valores[m.key]) || 0;
           if (tipo === "despesa") val *= -1;
           totais[idx] += val;
         });
@@ -228,7 +226,6 @@
     }
 
     function salvarCategorias() {
-      normalizarValoresCategorias();
       db.ref("categorias").set(categorias, function() {
         db.ref("valores").set(valoresPorCategoria);
       });
@@ -264,7 +261,7 @@
         if (!["receita", "despesa"].includes(tipo)) { alert("Tipo inválido."); return; }
         if (categorias.find(c=>c.nome === nome)) { alert("Categoria já existe."); return; }
         categorias.push({ nome, tipo });
-        valoresPorCategoria[nome] = Array(meses.length).fill("");
+        valoresPorCategoria[nome] = {}; // Agora objeto, não array
         salvarCategorias();
         fecharDropdown();
       };
@@ -301,7 +298,8 @@
         if (!novonome) { alert("Digite um nome."); return; }
         if (!["receita", "despesa"].includes(tipo)) { alert("Tipo inválido."); return; }
         if (novonome !== cat.nome && categorias.find(c=>c.nome === novonome)) { alert("Categoria já existe."); return; }
-        valoresPorCategoria[novonome] = valoresPorCategoria[cat.nome] || Array(meses.length).fill("");
+        // Troca nome mantendo valores
+        valoresPorCategoria[novonome] = valoresPorCategoria[cat.nome] || {};
         if (novonome !== cat.nome) delete valoresPorCategoria[cat.nome];
         cat.nome = novonome;
         cat.tipo = tipo;
@@ -370,7 +368,7 @@
     });
 
     function atualizarGrafico(data) {
-      grafico.data.labels = meses;
+      grafico.data.labels = meses.map(m=>m.label);
       grafico.data.datasets[0].data = data;
       grafico.update();
     }
