@@ -85,12 +85,11 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Meses fixos
+    // Meses fixos de Jan/2023 até Dez/2028
     const mesesPadrao = (() => {
-      // De Jan/2023 até Dez/2028 (pode ajustar)
       let array = [];
-      let start = new Date(2023, 0, 1); // Jan/2023
-      for (let i = 0; i < 72; i++) { // 6 anos
+      let start = new Date(2023, 0, 1);
+      for (let i = 0; i < 72; i++) {
         let d = new Date(start.getFullYear(), start.getMonth() + i, 1);
         let mesAbrev = d.toLocaleString('pt-BR', { month: 'short' }).replace('.', '');
         let ano = d.getFullYear().toString().slice(2);
@@ -103,9 +102,20 @@
     let categorias = [];
     let valoresPorCategoria = {};
     let visiveis = 24;
-    let inicioVisivel = 0; // índice do primeiro mês visível
+    let inicioVisivel = 0;
 
-    // Inicializa meses
+    // Busca o índice do mês atual no array de meses
+    function setInicioMesAtual() {
+      const hoje = new Date();
+      const mesAtual = hoje.getMonth();
+      const anoAtual = hoje.getFullYear() % 100;
+      let mesFormatado = hoje.toLocaleString('pt-BR', { month: 'short' }).replace('.', '');
+      mesFormatado = mesFormatado.charAt(0).toUpperCase() + mesFormatado.slice(1);
+      let atualStr = `${mesFormatado}/${anoAtual < 10 ? '0'+anoAtual : anoAtual}`;
+      let idx = meses.findIndex(m => m === atualStr);
+      inicioVisivel = idx >= 0 ? idx : 0;
+    }
+
     function inicializaMesesFixos(callback) {
       db.ref("meses").once("value", snap => {
         if (snap.exists() && Array.isArray(snap.val())) {
@@ -120,18 +130,6 @@
           });
         }
       });
-    }
-
-    // Por padrão: mostra o mês atual como a primeira coluna
-    function setInicioMesAtual() {
-      const hoje = new Date();
-      const mesAtual = hoje.getMonth();
-      const anoAtual = hoje.getFullYear() % 100;
-      let mesFormatado = hoje.toLocaleString('pt-BR', { month: 'short' }).replace('.', '');
-      mesFormatado = mesFormatado.charAt(0).toUpperCase() + mesFormatado.slice(1);
-      let atualStr = `${mesFormatado}/${anoAtual < 10 ? '0'+anoAtual : anoAtual}`;
-      inicioVisivel = meses.findIndex(m => m === atualStr);
-      if (inicioVisivel < 0) inicioVisivel = 0;
     }
 
     function redesenharCabecalhos() {
@@ -230,8 +228,8 @@
       const totalRow = document.getElementById("monthlyTotalRow");
       const acumuladoRow = document.getElementById("accumulatedTotalRow");
       let fim = Math.min(inicioVisivel + visiveis, meses.length);
-      const totais = Array(visiveis).fill(0);
-      const acumulados = Array(visiveis).fill(0);
+      const totais = Array(fim - inicioVisivel).fill(0);
+      const acumulados = Array(fim - inicioVisivel).fill(0);
       document.querySelectorAll("tbody tr").forEach(tr => {
         const tipo = tr.dataset.tipo;
         [...tr.cells].slice(1).forEach((td, idx) => {
@@ -247,6 +245,10 @@
         acumuladoRow.cells[i + 1].textContent = fmtBRL(acumulados[i]);
       });
       atualizarGrafico(acumulados);
+    }
+
+    function fmtBRL(v) {
+      return "R$ " + (isNaN(v) ? "0,00" : v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
     }
 
     function salvarCategorias() {
@@ -361,7 +363,6 @@
       calcularTotais();
     };
 
-    // Carrega tudo do banco e renderiza
     function carregarTudo() {
       db.ref("categorias").once("value", snap => {
         categorias = snap.val() || [];
@@ -438,7 +439,7 @@
     });
 
     // Mostra mais 3 meses anteriores (desliza janela para trás)
-    showPastMonthsBtn.onclick = function() {
+    document.getElementById('showPastMonthsBtn').onclick = function() {
       if (inicioVisivel > 0) {
         inicioVisivel = Math.max(0, inicioVisivel - 3);
         renderizarTabela();
