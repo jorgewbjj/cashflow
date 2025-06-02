@@ -198,27 +198,64 @@
       });
       calcularTotais();
     }
+function calcularTotais() {
+  const totalRow = document.getElementById("monthlyTotalRow");
+  const acumuladoRow = document.getElementById("accumulatedTotalRow");
+  const totais = Array(meses.length).fill(0);
+  const acumulados = Array(meses.length).fill(0);
 
-    function calcularTotais() {
-      const totalRow = document.getElementById("monthlyTotalRow");
-      const acumuladoRow = document.getElementById("accumulatedTotalRow");
-      const totais = Array(meses.length).fill(0);
-      const acumulados = Array(meses.length).fill(0);
-      categorias.forEach(cat => {
-        const tipo = cat.tipo;
-        const valores = valoresPorCategoria[cat.nome] || {};
-        meses.forEach((m, idx) => {
-          let val = parseFloat(valores[m.key]) || 0;
-          if (tipo === "despesa") val *= -1;
-          totais[idx] += val;
-        });
-      });
-      totais.forEach((v, i) => {
-        totalRow.cells[i + 1].textContent = fmtBRL(v);
-        acumulados[i] = (acumulados[i - 1] || 0) + v;
-        acumuladoRow.cells[i + 1].textContent = fmtBRL(acumulados[i]);
-      });
-      atualizarGrafico(acumulados);
+  // 1. Descubra o menor mês (YYYYMM) já registrado
+  let allMonthsSet = new Set();
+  Object.values(valoresPorCategoria).forEach(catVals => {
+    if (typeof catVals === "object") {
+      Object.keys(catVals).forEach(mes => allMonthsSet.add(mes));
+    }
+  });
+
+  // Se não houver dados, usa meses visíveis
+  if (allMonthsSet.size === 0) {
+    meses.forEach(m => allMonthsSet.add(m.key));
+  }
+
+  // Ordena do menor para o maior
+  let allMonths = Array.from(allMonthsSet).sort();
+  // Certifica que todos os meses visíveis estão incluídos (se faltou algum)
+  meses.forEach(m => { if (!allMonths.includes(m.key)) allMonths.push(m.key); });
+  allMonths = allMonths.sort();
+
+  // 2. Crie mapa: key do mês => índice
+  const keyToIndex = {};
+  allMonths.forEach((k, i) => keyToIndex[k] = i);
+
+  // 3. Para cada mês visível, calcule acumulado do início até aquele mês
+  // Monte matriz de totais
+  let saldosPorMes = Array(allMonths.length).fill(0);
+
+  categorias.forEach(cat => {
+    const tipo = cat.tipo;
+    const valores = valoresPorCategoria[cat.nome] || {};
+    allMonths.forEach((mesKey, idx) => {
+      let val = parseFloat(valores[mesKey]) || 0;
+      if (tipo === "despesa") val *= -1;
+      saldosPorMes[idx] += val;
+    });
+  });
+
+  // 4. Para cada mês visível, preencha os totais e o acumulado correto
+  meses.forEach((m, idx) => {
+    let idxAll = allMonths.indexOf(m.key);
+    // Saldo do mês (apenas esse mês)
+    totalRow.cells[idx + 1].textContent = fmtBRL(saldosPorMes[idxAll]);
+    // Acumulado do primeiro mês ATÉ este mês
+    let soma = 0;
+    for (let i = 0; i <= idxAll; i++) soma += saldosPorMes[i];
+    acumuladoRow.cells[idx + 1].textContent = fmtBRL(soma);
+    acumulados[idx] = soma;
+  });
+
+  atualizarGrafico(acumulados);
+}
+  
     }
 
     function fmtBRL(v) {
